@@ -1,0 +1,25 @@
+
+name: build
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  deploy-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: ./qs-deploy.sh
+  deploy-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: ./qs-deploy.sh
+  deploy-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: ./qs-deploy.ps1
+
+
