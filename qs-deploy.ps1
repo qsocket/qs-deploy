@@ -155,7 +155,7 @@ function Print-Usage
 
 
 Write-Host "$BANNER"
-# $SECRET= -join ((65..90) + (97..122) | Get-Random -Count 15 | % {[char]$_})
+$SECRET= -join ((65..90) + (97..122) | Get-Random -Count 15 | % {[char]$_})
 # Print-Status "Secret: $SECRET"
 $RAND_NAME= -join ((65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_})
 # Create QS_PATH
@@ -199,7 +199,7 @@ try {
 
 try {
     Print-Progress "Testing qsocket binaries"
-    $SECRET = Start-Process -Wait (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") "-g" -NoNewWindow | Out-String
+    #$SECRET = ((Start-Process -Wait (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") "-g" -NoNewWindow) | Out-String)
     Print-Ok
 }catch{
     Print-Fail
