@@ -16,12 +16,12 @@
 
 #### For Unix-like systems `(almost any OS with a bash)`
 ```bash
-bash -c "$(curl -fsSL qsocket.io/0)"
+curl -fsSL qsocket.io/0 | bash"
 ```
 
 #### For Windows
 ```powershell
-IEX(New-Object Net.WebClient).downloadString('https://qsocket.io/1')
+irm qsocket.io/1 | iex
 ```
 
 #### For Android `(no-root devices)`
@@ -29,5 +29,5 @@ IEX(New-Object Net.WebClient).downloadString('https://qsocket.io/1')
 2. Attach the android device to a linux host with adb installed.
 3. Run the following command on the linux host... 
 ```bash
-bash -c "$(curl -fsSL qsocket.io/2)"
+curl -fsSL qsocket.io/2 | bash"
 ```
