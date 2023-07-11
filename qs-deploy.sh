@@ -197,7 +197,6 @@ detect_os() {
 }
 
 get_latest_release_url() {
-	# For testing
 	[[ -z "$BIN_NAME" ]] && print_fatal "Binary name not set! Exiting..."
 	local API_URL="$BASE_URL/$BIN_NAME/releases/latest"
 	WGET_BIN=$(command -v wget)
@@ -222,7 +221,8 @@ download_util() {
 }
 
 
-# Unpack the given qs-util to the same directory with given name
+# Unpack the given tar archive to the same directory with given name
+# and modify file time data
 # $1 = archive file 
 # $2 = extracted name 
 unpack_util() {
