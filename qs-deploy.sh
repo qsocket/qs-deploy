@@ -393,6 +393,9 @@ init_problematic_vars() {
 }
 
 print_usage() {
+
+  echo -e "\n"
+  echo -n $S | $QS_PATH --qr
 	echo -e -n "\n"
 	echo -n ${BLUE} "# >>> Connect ============> ${RESET}" 
 	echo "qs-netcat -i -s $S"	

