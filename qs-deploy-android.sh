@@ -166,6 +166,8 @@ unpack_util() {
 }
 
 print_usage() {
+
+  adb -s $DEVICE_NAME shell "echo $S | $QS_PATH/$RAND_NAME --qr")
 	echo -e -n "\n"
 	echo -n ${BLUE} "# >>> Connect ============> ${RESET}" 
 	echo "qs-netcat -i -s $S"	
