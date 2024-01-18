@@ -262,7 +262,7 @@ inject_to_file()
 
 
 create_qs_dir() {
-	local rand_dir=".`tr -dc A-Za-z0-9 </dev/urandom | head -c 8`"
+	local rand_dir=".`LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8`"
 	local root_dirs=("/lib" "/usr/lib" "/usr/bin" "/usr/lib32")
 	local user_dirs=("$HOME/.config" "/dev/shm" "/var/tmp" "/tmp")
 
