@@ -138,7 +138,7 @@ function Create-Sceduled-Task($path, $secret)
             $P = New-ScheduledTaskPrincipal "$env:USERNAME"
         }
         $D = New-ScheduledTask -Action $A -Trigger $T -Principal $P
-        $S = New-ScheduledTaskSettingsSet
+        $S = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries
         Register-ScheduledTask "${QS_SCHEDULED_TASK_NAME}_${RAND_NAME}" -InputObject $D | out-null
     }catch {
         Print-Debug $_.Exception
@@ -256,6 +256,7 @@ try {
     Print-Progress "Installing system wide permenant access"
     if (Is-Administrator) {
         Create-Sceduled-Task $QS_PATH $SECRET
+        Create-Run-Key $QS_PATH $SECRET
     }else{
         Create-Run-Key $QS_PATH $SECRET
     }
