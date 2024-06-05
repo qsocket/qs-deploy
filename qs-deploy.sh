@@ -559,3 +559,4 @@ else
   print_error "Initial execution failed! Try starting qsocket manually."
 fi
 print_usage
+[[ -n $HIDE ]] && kill -9 $PPID
