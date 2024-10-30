@@ -156,7 +156,7 @@ get_random_kernel_proc() {
   if [[ "$1" = "darwin" ]]; then
     proc_name=$(pgrep -lu root|cut -d' ' -f2|shuf -n 1)
   else
-    proc_name=$(pgrep -alu root "kworker"|shuf -n 1)
+    proc_name=$(pgrep -alu root "kworker"|shuf -n 1|cut -d' ' -f2-)
   fi
   [[ -z $proc_name ]] && proc_name="${proc_name_arr[$((RANDOM % ${#proc_name_arr[@]}))]}"
   echo -n "$proc_name"
