@@ -341,7 +341,7 @@ Type=simple
 Restart=always
 RestartSec=10
 WorkingDirectory=/root
-ExecStart=/bin/bash -c \"QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
+ExecStart=/bin/bash -c \"SHELL=${SHELL} TERM=xterm-256color QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
  
 [Install]
 WantedBy=multi-user.target" > "${SERVICE_FILE}"
