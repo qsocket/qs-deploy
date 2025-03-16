@@ -49,30 +49,34 @@ __BANNER__
 
 [[ -z $ERR_LOG ]] && ERR_LOG="/dev/null"
 ## ANSI Colors (FG & BG)
-RED="$(printf '\033[31m')" GREEN="$(printf '\033[32m')" YELLOW="$(printf '\033[33m')" BLUE="$(printf '\033[34m')"
-MAGENTA="$(printf '\033[35m')" CYAN="$(printf '\033[36m')" WHITE="$(printf '\033[37m')" BLACK="$(printf '\033[30m')"
-REDBG="$(printf '\033[41m')" GREENBG="$(printf '\033[42m')" YELLOWBG="$(printf '\033[43m')" BLUEBG="$(printf '\033[44m')"
-MAGENTABG="$(printf '\033[45m')" CYANBG="$(printf '\033[46m')" WHITEBG="$(printf '\033[47m')" BLACKBG="$(printf '\033[40m')"
-RESET="$(printf '\e[0m')"
+RED="\033[31m" GREEN="\033[32m" YELLOW="\033[33m" BLUE="\033[34m"
+MAGENTA="\033[35m" CYAN="\033[36m" WHITE="\033[37m" BLACK="\033[30m"
+REDBG="\033[41m" GREENBG="\033[42m" YELLOWBG="\033[43m" BLUEBG="\033[44m"
+MAGENTABG="\033[45m" CYANBG="\033[46m" WHITEBG="\033[47m" BLACKBG="\033[40m"
+RESET="\e[0m"
 
 print_status() {
-    echo "${YELLOW}[*] ${RESET}${1}"
+    echo -e "${YELLOW}[*] ${RESET}${1}"
 }
 
 print_progress() {
 	[[ -n "${QS_DEBUG}" ]] && return
-    echo -n "${YELLOW}[*] ${RESET}"
+    echo -ne "${YELLOW}[*] ${RESET}"
 	echo -n "$1"
 	n=${#1}
-	printf %$((70-n))s |tr " " "."
+  echo -n " "
+  for ((i=0; i<70-n; i++))
+  do
+	  echo -n "."
+  done
 }
 
 print_warning() {
-  echo "${YELLOW}[!] ${RESET}${1}"
+  echo -e "${YELLOW}[!] ${RESET}${1}"
 }
 
 print_error() {
-  echo "${RED}[-] ${RESET}${1}"
+  echo -e "${RED}[-] ${RESET}${1}"
 }
 
 print_fatal() {
@@ -81,12 +85,12 @@ print_fatal() {
 }
 
 print_good() {
-  echo "${GREEN}[+] ${RESET}${1}"
+  echo -e "${GREEN}[+] ${RESET}${1}"
 }
 
 print_debug() {
   if [[ -n "${QS_DEBUG}" ]]; then
-    echo "${WHITE}[*] ${RESET}${1}"
+    echo -e "${WHITE}[*] ${RESET}${1}"
   fi
 }
 
@@ -506,9 +510,9 @@ print_usage() {
   echo -e "\n"
   echo -n "$S" | $QS_PATH --qr
 	echo -e -n "\n"
-	echo -n "${BLUE}# >>> Connect ============> ${RESET}" 
+	echo -ne "${BLUE}# >>> Connect ============> ${RESET}" 
 	echo "qs-netcat -i -s $S"	
-	echo -n "${BLUE}# >>> Connect With TOR ===> ${RESET}"
+	echo -ne "${BLUE}# >>> Connect With TOR ===> ${RESET}"
 	echo "qs-netcat -T -i -s $S"	
 	# echo -n ${BLUE} "# >>> Uninstall ==========> "
 	# echo "QS_UNDO=1 bash -c \"\$(curl -fsSL qsocket.io/x)\""
@@ -518,7 +522,7 @@ print_usage() {
 ###########################
 ########## START ##########
 ###########################
-must_exist "printf" "tar" "gzip" "head" "uname" "grep" "cut" "tr" "touch" "tail" "ps"
+must_exist "tar" "gzip" "head" "uname" "grep" "cut" "tr" "touch" "tail" "ps"
 one_must_exist "curl" "wget"
 print_banner
 
