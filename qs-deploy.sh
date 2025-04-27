@@ -177,6 +177,9 @@ detect_arch() {
 		"aarch64")
 			echo -n "arm64"
 			;;
+		"armv7"*)
+			echo -n "arm"
+			;;
 		"mips64")
 			echo -n "mips64"
 			;;
