@@ -487,6 +487,11 @@ install() {
 	return 1
 }
 
+is_elevate_possible() {
+  [[ $(id -u) -eq 0 ]] && sudo -n true && return 1
+  return 0
+}
+
 init_problematic_vars() {
 	# Verbose error logs
 	[[ -n "$QS_DEBUG" ]] && ERR_LOG="$(tty)"
@@ -557,6 +562,18 @@ print_status "Binary: $BIN_NAME"
 print_status "Deploy Dir: $QS_DIR"
 print_debug "Proc. Name: $PROC_HIDDEN_NAME"
 echo "" ## --- break after system info
+
+# Try to elevate privs
+if [[ "$UID" -ne 0 ]]; then 
+  print_progress "Trying to elevate privileges"
+  if is_elevate_possible; then 
+    print_ok
+    sudo -u root "$0"
+    exit
+  else
+    print_fail
+  fi
+fi
 
 if [[ "$QS_DIR" =~ ^.*/(tmp|shm).* ]]; then
   print_warning "Created a temp qsocket directoy!" 
