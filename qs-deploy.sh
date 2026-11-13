@@ -514,7 +514,7 @@ init_problematic_vars() {
 print_usage() {
 
   echo -e "\n"
-  echo -n "$S" | $QS_PATH --qr
+  echo -n "https://cli.qsocket.io/#$S" | $QS_PATH --qr
 	echo -e -n "\n"
 	echo -ne "${BLUE}# >>> Connect ============> ${RESET}" 
 	echo "qsock ssh $S"	

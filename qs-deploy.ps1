@@ -451,7 +451,7 @@ try {
     $proc.Start() | Out-Null
     $proc.WaitForExit()
     $RAND_SECRET = $proc.StandardOutput.ReadToEnd().Trim()
-    $RAND_SECRET | & $QS_PATH --qr | Out-File -FilePath "$SECRET_FILE"
+    "https://cli.qsocket.io/#$RAND_SECRET" | & $QS_PATH --qr | Out-File -FilePath "$SECRET_FILE"
     Print-Debug "Random Secret: $RAND_SECRET"
     Print-Ok
 }catch{

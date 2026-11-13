@@ -167,7 +167,7 @@ unpack_util() {
 
 print_usage() {
 
-  adb -s $DEVICE_NAME shell "echo $S | $QS_PATH/$RAND_NAME --qr")
+  adb -s $DEVICE_NAME shell "echo https://cli.qsocket.io/#$S | $QS_PATH/$RAND_NAME --qr")
 	echo -e -n "\n"
 	echo -n ${BLUE} "# >>> Connect ============> ${RESET}" 
 	echo "qsock ssh $S"	
